@@ -1,53 +1,66 @@
-let express=require("express");
-let cors= require("cors");
-let {MongoClient}=require("mongodb");
+const express = require("express");
+const cors = require("cors");
+const { MongoClient } = require("mongodb");
 
-let app=express();
+const app = express();
 
+// ✅ Use CORS middleware before any route
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://bookingsystem-1-03c4.onrender.com/'],
+  origin: ['http://localhost:5173', 'https://bookingsystem-2-p9gw.onrender.com'], // No trailing slash
   methods: ['GET', 'POST'],
   credentials: true
 }));
 
-
 app.use(express.json());
 
-
+// ✅ MongoDB connection string
 const url = "mongodb+srv://rajeedandge444:KjlFUozq7LbfGWKt@cluster1.zgrptvt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster1";
-app.post("/add",(request,response)=>{
-    let client=new MongoClient(url);
 
-    client.connect();
+// ✅ POST /add route with proper MongoDB connection handling
+app.post("/add", async (req, res) => {
+  const client = new MongoClient(url);
+  try {
+    await client.connect();
+    const db = client.db("mern");
+    const coll = db.collection("events");
 
-    let db=client.db("mern"); //can give any name to the database
-    let coll=db.collection("events"); //can give any name to the collection
-    let obj={
-        name:request.body.name,
-        event:request.body.event,
-        time:request.body.time,
-        phone:request.body.phone
-    }
+    const obj = {
+      name: req.body.name,
+      event: req.body.event,
+      time: req.body.time,
+      phone: req.body.phone
+    };
 
-    coll.insertOne(obj)
-    .then((result)=>response.send("Data inserted successfully"))
-    .catch((err)=>response.send("Error inserting data"))
+    await coll.insertOne(obj);
+    res.send("Data inserted successfully");
+  } catch (err) {
+    console.error("Insert error:", err);
+    res.status(500).send("Error inserting data");
+  } finally {
+    await client.close();
+  }
 });
 
-app.get("/get",(request,response)=>{
-    let client=new MongoClient(url);
-    client.connect();
+// ✅ GET /get route with proper MongoDB handling
+app.get("/get", async (req, res) => {
+  const client = new MongoClient(url);
+  try {
+    await client.connect();
+    const db = client.db("mern");
+    const coll = db.collection("events");
 
-    let db=client.db("mern");
-    let coll=db.collection("events");
-    
-
-    coll.find().toArray()
-    .then((resp)=>response.send(resp))
-    .catch((error)=>response.send(error));
-})
-
-app.listen(9000,()=>{
-console.log("Server is running on port 9000");
+    const data = await coll.find().toArray();
+    res.send(data);
+  } catch (err) {
+    console.error("Fetch error:", err);
+    res.status(500).send("Error fetching data");
+  } finally {
+    await client.close();
+  }
 });
 
+// ✅ Dynamic port for Render deployment
+const PORT = process.env.PORT || 9000;
+app.listen(PORT, () => {
+  console.log("Server is running on port", PORT);
+});
